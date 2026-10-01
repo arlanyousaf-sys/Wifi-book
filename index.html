@@ -1287,8 +1287,7 @@ function sendVoucherText(){
   window.open('https://wa.me/'+wa+'?text='+encodeURIComponent(txt),'_blank');
   showToast('✅ WhatsApp khul raha hai...');
 }
-
-/* ✅ IMAGE SEND — preview modal + WhatsApp direct customer ke number par */
+/* ✅ IMAGE SEND — Quick Share aur fallback ke sath */
 async function sendVoucherImage(){
   if(!currentVoucherCid)return;
   const c=state.customers.find(x=>x.id===currentVoucherCid);
@@ -1296,11 +1295,12 @@ async function sendVoucherImage(){
 
   const inp=document.getElementById('voucherPhoneInput');
   const val=(inp.value||'').trim();
-  if(!val){showToast('⚠️ Pehle phone number likhein');inp.focus();updateVoucherPhoneBox();return;}
-  const wa=normalizePhoneForWa(val);
-  if(!wa){showToast('❌ Number sahi nahi — 0300-1234567');inp.focus();return;}
-
-  if((c.phone||'')!==val){c.phone=val;saveState();renderAll();showToast('✅ Phone save: '+val);}
+  
+  // Phone number sirf record mein save karne ke liye (agar user ne likha hai)
+  if(val && (c.phone||'')!==val){
+    const wa=normalizePhoneForWa(val);
+    if(wa){ c.phone=val; saveState(); renderAll(); }
+  }
 
   const period=currentVoucherPeriod, isYear=currentVoucherIsYear;
   const fname='voucher-'+c.name.replace(/\s+/g,'_')+'-'+period+'.png';
@@ -1311,32 +1311,33 @@ async function sendVoucherImage(){
     const blob=await htmlToPngBlob(html,480);
     const file=new File([blob],fname,{type:'image/png'});
 
-    // Mobile: native share
+    // 1. Pehle Direct Share (Quick Share) try karein
     if(navigator.share && navigator.canShare && navigator.canShare({files:[file]})){
       try{
         await navigator.share({files:[file],title:'Voucher — '+c.name,text:''});
-        showToast('✅ WhatsApp par bhej dein.');
-        return;
+        showToast('✅ Share ho gaya!');
+        return; // Share ho gaya to yahin ruk jayein
       }catch(e){ if(e.name==='AbortError'){showToast('Cancel.');return;} }
     }
 
-    // Desktop fallback: download + preview modal (customer ke number par direct)
+    // 2. Fallback: Picture save karein aur WhatsApp bina number ke kholein
     const url=URL.createObjectURL(blob);
     const a=document.createElement('a');
     a.href=url;a.download=fname;document.body.appendChild(a);a.click();
     setTimeout(()=>{a.remove();URL.revokeObjectURL(url)},2500);
 
     document.getElementById('voucherModal').classList.remove('show');
+    showToast('✅ Picture save ho gayi hai! Ab WhatsApp par bhejein.');
 
-    // ✅ c.phone bhejenge taake WhatsApp direct customer ke number par jaye
-    showImagePreviewModal(blob, c.phone, fname, period, c, isYear);
+    setTimeout(()=>{
+      window.open('https://wa.me/', '_blank'); 
+    }, 1500);
 
   }catch(err){
     console.error(err);
     showToast('❌ '+(err.message||'Voucher image nahi ban saki'));
   }
-}
-
+  }
 async function saveVoucherPNG(){
   if(!currentVoucherCid)return;
   const c=state.customers.find(x=>x.id===currentVoucherCid);if(!c)return;

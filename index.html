@@ -1,15 +1,4 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>WiFi Record Book</title>
-<style>
-
-</style>
-</head>
-<body>
-<!DOCTYPE html>
 <html lang="ur">
 <head>
 <meta charset="UTF-8">
@@ -2134,10 +2123,14 @@ function wipeAll(){
   renderAll();
 })();
 </script>
-</body>
-</html>
 <script>
-
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js')
+        .then(registration => console.log('ServiceWorker registered successfully'))
+        .catch(err => console.log('ServiceWorker registration failed: ', err));
+    });
+  }
 </script>
 </body>
 </html>

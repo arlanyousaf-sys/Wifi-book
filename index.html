@@ -1097,33 +1097,6 @@ async function shareReceiptWhatsApp(){
         console.log('Direct share fail hua, ab fallback chalayenge...');
       }
     }
-  }catch(err){
-    console.error(err);
-    showToast('❌ '+(err.message||'Receipt nahi ban saki'));
-  }
-  }
-    // 2. Agar Direct Share kaam na kare (jaise purani APK mein), to Download karein
-    const url=URL.createObjectURL(blob);
-    const a=document.createElement('a');
-    a.href=url;
-    a.download=fname;
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(()=>{a.remove();URL.revokeObjectURL(url);},1500);
-
-    showToast('✅ Picture save ho gayi hai! Ab WhatsApp par bhejein.');
-
-    // 3. 2.5 second baad WhatsApp kholein
-    setTimeout(()=>{
-      const phone = c.phone ? c.phone.replace(/\D/g,'') : '';
-      let waUrl = 'https://wa.me/';
-      if(phone){
-        if(phone.startsWith('0')) waUrl += '92'+phone.slice(1);
-        else if(phone.startsWith('92') && phone.length===12) waUrl += phone;
-        else waUrl += phone;
-      }
-      window.open(waUrl, '_blank');
-    }, 2500);
 
   }catch(err){
     console.error(err);

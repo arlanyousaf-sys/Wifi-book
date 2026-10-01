@@ -1097,21 +1097,6 @@ async function shareReceiptWhatsApp(){
         console.log('Direct share fail hua, ab fallback chalayenge...');
       }
     }
-
-    // 2. Fallback: Agar Quick Share kaam na kare (jaise purani APK mein block ho jata hai)
-    // Picture ko phone mein save karein
-    const url=URL.createObjectURL(blob);
-    const a=document.createElement('a');
-    a.href=url;a.download=fname;document.body.appendChild(a);a.click();
-    setTimeout(()=>{a.remove();URL.revokeObjectURL(url)},2500);
-    
-    showToast('✅ Picture save ho gayi hai! Ab WhatsApp par bhejein.');
-    
-    // Bina customer ka number search kiye WhatsApp kholein
-    setTimeout(()=>{
-      window.open('https://wa.me/','_blank');
-    }, 1500);
-
   }catch(err){
     console.error(err);
     showToast('❌ '+(err.message||'Receipt nahi ban saki'));

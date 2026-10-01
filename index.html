@@ -1080,30 +1080,37 @@ async function shareReceiptWhatsApp(){
   const c=state.customers.find(x=>x.id===currentReceiptCid);if(!c)return;
   const mk=currentReceiptMk;
   try{
-    showToast('⏳ Receipt tayyar ho rahi hai...');
-    const receiptHTML=buildReceiptHTMLInline(c,mk);
-    const blob=await htmlToPngBlob(receiptHTML,560);
+    showToast('📸 Receipt tayar ho rahi hai...');
+    const receiptHTML=buildReceiptHTML(c, mk);
+    const blob=await htmlToPngBlob(receiptHTML, 560);
     const fname='receipt-'+c.name.replace(/\s+/g,'_')+'-'+mk+'.png';
-    const file=new File([blob],fname,{type:'image/png'});
-    if(navigator.share){
-      try{
-        await navigator.share({files:[file],title:'Receipt — '+c.name,text:'Official Payment Voucher — '+monthLabel(mk)});
-        showToast('✅ WhatsApp par bhej dein.');
-        return;
-      }catch(e){
-        if(e.name==='AbortError'){showToast('Share cancel.');return;}
-      }
-    }
+
+    // 1. Pehle picture ko phone ki Gallery mein save karein
     const url=URL.createObjectURL(blob);
     const a=document.createElement('a');
-    a.href=url;a.download=fname;document.body.appendChild(a);a.click();
-    setTimeout(()=>{a.remove();URL.revokeObjectURL(url)},2500);
-    let phone=(c.phone||'').replace(/\D/g,'');
-    if(phone){if(phone.startsWith('0'))phone='92'+phone.slice(1);else if(!phone.startsWith('92')&&phone.length===10)phone='92'+phone;window.open('https://wa.me/'+phone,'_blank');}
-    else window.open('https://wa.me/','_blank');
+    a.href=url;
+    a.download=fname;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(()=>{a.remove();URL.revokeObjectURL(url);},1500);
+
+    showToast('✅ Picture save ho gayi hai! Ab WhatsApp par bhejein.');
+
+    // 2. 2.5 second baad WhatsApp kholein
+    setTimeout(()=>{
+      const phone = c.phone ? c.phone.replace(/\D/g,'') : '';
+      let waUrl = 'https://wa.me/';
+      if(phone){
+        if(phone.startsWith('0')) waUrl += '92'+phone.slice(1);
+        else if(phone.startsWith('92') && phone.length===12) waUrl += phone;
+        else waUrl += phone;
+      }
+      window.open(waUrl, '_blank');
+    }, 2500);
+
   }catch(err){
     console.error(err);
-    showToast('❌ '+(err.message||'Receipt nahi ban saki'));
+    showToast('❌ Receipt nahi ban saki: '+err.message);
   }
 }
 

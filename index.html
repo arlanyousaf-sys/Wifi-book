@@ -1080,31 +1080,43 @@ async function shareReceiptWhatsApp(){
   const c=state.customers.find(x=>x.id===currentReceiptCid);if(!c)return;
   const mk=currentReceiptMk;
   try{
-    showToast('📸 Receipt tayar ho rahi hai...');
-    const receiptHTML=buildReceiptHTML(c, mk);
-    const blob=await htmlToPngBlob(receiptHTML, 560);
+    showToast('⏳ Receipt tayyar ho rahi hai...');
+    const receiptHTML=buildReceiptHTMLInline(c,mk);
+    const blob=await htmlToPngBlob(receiptHTML,560);
     const fname='receipt-'+c.name.replace(/\s+/g,'_')+'-'+mk+'.png';
-    const file = new File([blob], fname, {type: 'image/png'});
+    const file=new File([blob],fname,{type:'image/png'});
 
-    // 1. Pehle check karein ke kya phone Direct Share (Quick Share) support karta hai
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      try {
-        await navigator.share({
-          files: [file],
-          title: 'WiFi Book Voucher',
-          text: 'Yeh raha aapka WiFi Book Voucher'
-        });
+    // 1. Pehle Direct Share (Quick Share) try karein - jaisa aap chahte hain
+    if(navigator.share && navigator.canShare && navigator.canShare({files:[file]})){
+      try{
+        await navigator.share({files:[file],title:'Receipt — '+c.name,text:'Official Payment Voucher — '+monthLabel(mk)});
         showToast('✅ Share ho gaya!');
-        return; // Agar share ho gaya to yahin ruk jayein
-      } catch (err) {
-        if (err.name === 'AbortError') {
-          showToast('Share cancel kar diya.');
-          return;
-        }
-        console.log('Direct share fail hua, ab download karein...', err);
+        return; // Share ho gaya to yahin ruk jayein
+      }catch(e){
+        if(e.name==='AbortError'){showToast('Share cancel.');return;}
+        console.log('Direct share fail hua, ab fallback chalayenge...');
       }
     }
 
+    // 2. Fallback: Agar Quick Share kaam na kare (jaise purani APK mein block ho jata hai)
+    // Picture ko phone mein save karein
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;a.download=fname;document.body.appendChild(a);a.click();
+    setTimeout(()=>{a.remove();URL.revokeObjectURL(url)},2500);
+    
+    showToast('✅ Picture save ho gayi hai! Ab WhatsApp par bhejein.');
+    
+    // Bina customer ka number search kiye WhatsApp kholein
+    setTimeout(()=>{
+      window.open('https://wa.me/','_blank');
+    }, 1500);
+
+  }catch(err){
+    console.error(err);
+    showToast('❌ '+(err.message||'Receipt nahi ban saki'));
+  }
+  }
     // 2. Agar Direct Share kaam na kare (jaise purani APK mein), to Download karein
     const url=URL.createObjectURL(blob);
     const a=document.createElement('a');

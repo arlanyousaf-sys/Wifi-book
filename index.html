@@ -682,21 +682,23 @@ const RECEIPT_PRINT_CSS='.voucher{border:1px solid #e2e8f0;border-radius:12px;ov
   '.v-foot{padding:12px 18px 16px;text-align:center;font-size:11px;color:#64748b}'+
   '.v-foot b{color:#5b4fe0}';
 
-async function htmlToPngBlob(html,minW){
+async function htmlToPngBlob(html, minW){
   minW=minW||700;
   if(typeof html2canvas==='undefined')throw new Error('html2canvas load nahi hui.');
   const t=document.createElement('div');
-  t.style.cssText='position:absolute;left:-9999px;top:0;background:#fff;padding:20px;font-family:Arial,sans-serif;font-size:13px;color:#0f172a;display:inline-block;min-width:'+minW+'px;';
-  t.innerHTML='<style>'+SHARE_CSS+RECEIPT_PRINT_CSS+'</style><div class="report-wrap" style="width:max-content;min-width:100%">'+html+'</div>';
+  t.style.cssText='position:absolute;left:-9999px;top:0;background:#ffffff;padding:20px;font-family:Arial,sans-serif;font-size:14px;z-index:9999;width:800px;';
+  t.innerHTML='<style>'+SHARE_CSS+RECEIPT_PRINT_CSS+'</style>'+html;
   document.body.appendChild(t);
   try{
-    const w=Math.max(minW,Math.ceil(t.querySelector('.report-wrap').scrollWidth+40));
-    const h=Math.ceil(t.querySelector('.report-wrap').scrollHeight+40);
-    const c=await html2canvas(t,{backgroundColor:'#fff',scale:2,useCORS:true,logging:false,width:w,height:h,windowWidth:w,windowHeight:h});
+    const work=t.querySelector('.report-wrap')||t.firstElementChild;
+    const cw=Math.max(minW,Math.min(work.clientWidth||minW,900));
+    const ch=work.clientHeight||400;
+    // Yahan scale: 2 ko hata kar scale: 1 kar diya hai taake memory crash na ho
+    const canvas=await html2canvas(work,{backgroundColor:'#ffffff',scale:1,useCORS:true,logging:false,width:cw,height:ch,windowWidth:cw,windowHeight:ch});
     t.remove();
-    return new Promise((res,rej)=>{c.toBlob(b=>b?res(b):rej(new Error('fail')),'image/png',.95)});
-  }catch(e){t.remove();throw e}
-}
+    return new Promise((res,rej)=>{canvas.toBlob(b=>b?res(b):rej(new Error('fail')),'image/png',.95);});
+  }catch(e){t.remove();throw e;}
+  }
 async function shareHtmlAsPng(html,title,fn){
   try{
     showToast('⏳ Picture ban rahi hai...');

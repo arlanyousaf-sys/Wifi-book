@@ -4,7 +4,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>WiFi Record Book</title>
-<link rel="manifest" href="manifest.json">
 <style>
 
 </style>
@@ -230,6 +229,22 @@
     body.printing-all #__printArea table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:16px}
     body.printing-all #__printArea th,body.printing-all #__printArea td{padding:6px 8px;text-align:left;border-bottom:1px solid #e3e7f3}
     body.printing-all #__printArea th{background:#f6f7fc;font-size:10px;color:#6b708a;font-weight:700}
+  }
+  /* ✅ Voucher mobile responsiveness */
+  @media(max-width:600px){
+    .modal{padding:8px!important}
+    .modal-box{padding:16px 14px!important;border-radius:16px!important;max-height:94vh}
+    .modal-box.wide{max-width:100%!important}
+    #voucherBody{overflow-x:hidden!important}
+    #voucherBody>div{width:100%!important;max-width:100%!important}
+    #voucherBody>div>table,#voucherBody>div>div{max-width:100%!important}
+    #voucherBody div[style*="padding:16px 20px"],
+    #voucherBody div[style*="padding:14px 20px"]{padding:12px 14px!important}
+    #voucherBody div[style*="padding:6px 20px"]{padding:6px 14px!important}
+    #voucherBody td[style*="padding:7px 0"]{font-size:12.5px!important}
+    #voucherBody td[style*="white-space:nowrap"]{white-space:normal!important}
+    .modal-actions{gap:6px}
+    .modal-actions .btn{padding:9px 12px;font-size:13px;flex:1 1 auto;min-width:120px}
   }
 </style>
 </head>
@@ -469,6 +484,34 @@
   </div>
 </div>
 
+<!-- ✅ Voucher Modal -->
+<div class="modal" id="voucherModal">
+  <div class="modal-box wide">
+    <h3>🧾 Payment Voucher</h3>
+    <div id="voucherBody"></div>
+
+    <!-- 📱 Phone Number Input -->
+    <div id="voucherPhoneBox" style="margin-top:14px;padding:12px;background:#f6f7fc;border:1px solid #e3e7f3;border-radius:12px">
+      <label style="display:block;font-size:12.5px;font-weight:700;color:#6b708a;margin-bottom:6px">
+        📱 Customer ka WhatsApp Phone Number
+      </label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <input type="tel" id="voucherPhoneInput" placeholder="0300-1234567 ya +923001234567" style="flex:1;min-width:160px" inputmode="tel">
+        <button class="btn ok" onclick="saveVoucherPhone()" style="white-space:nowrap">💾 Save</button>
+      </div>
+      <div class="hint" id="voucherPhoneHint" style="font-size:11.5px;margin-top:6px"></div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn ghost" onclick="closeVoucherModal()">Close</button>
+      <button class="btn wa" onclick="sendVoucherText()">📱 Text Send</button>
+      <button class="btn wa" onclick="sendVoucherImage()">🖼️ Image Send</button>
+      <button class="btn" onclick="saveVoucherPNG()">⬇️ Save PNG</button>
+      <button class="btn" onclick="printVoucher()">🖨️ Print</button>
+    </div>
+  </div>
+</div>
+
 <div id="__printArea"></div>
 
 <script>
@@ -484,6 +527,7 @@ let highlightCid=null;
 let currentReportMode='month';
 let currentReportMonth=null;
 let currentReceiptCid=null, currentReceiptMk=null;
+let currentVoucherCid=null, currentVoucherPeriod=null, currentVoucherIsYear=false;
 let colFilter='all';
 let colDevFilter='all';
 const MN=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -1062,7 +1106,9 @@ async function shareReceiptWhatsApp(){
     const a=document.createElement('a');
     a.href=url;a.download=fname;document.body.appendChild(a);a.click();
     setTimeout(()=>{a.remove();URL.revokeObjectURL(url)},2500);
-    showImagePreviewModal(blob, c.phone, fname, mk, c, false);
+    let phone=(c.phone||'').replace(/\D/g,'');
+    if(phone){if(phone.startsWith('0'))phone='92'+phone.slice(1);else if(!phone.startsWith('92')&&phone.length===10)phone='92'+phone;window.open('https://wa.me/'+phone,'_blank');}
+    else window.open('https://wa.me/','_blank');
   }catch(err){
     console.error(err);
     showToast('❌ '+(err.message||'Receipt nahi ban saki'));
@@ -1149,6 +1195,185 @@ function buildVoucherTextMessage(c, period, isYear){
   return '*📶 WiFi Record Book - Payment Voucher*\n\n*Naam:* '+c.name+'\n*MAC:* '+c.mac+'\n*Location:* '+loc+'\n*Mahina:* '+monthLabel(mk)+'\n-------------------------\n*Monthly Fee:* '+money(fee)+'\n*Jama:* '+money(ap)+'\n*Baqaya:* '+money(baq)+'\n-------------------------\nMeharbani baqaya ada karein.\n\nShukriya! 🙏';
 }
 
+/* ============================================================
+   ✅ VOUCHER MODAL
+   ============================================================ */
+function openVoucher(cid, period, isYear){
+  const c=state.customers.find(x=>x.id===cid);
+  if(!c){showToast('Customer nahi mila.');return}
+  currentVoucherCid=cid;
+  currentVoucherPeriod=period;
+  currentVoucherIsYear=!!isYear;
+  document.getElementById('voucherBody').innerHTML=buildVoucherImageHTML(c,period,!!isYear);
+
+  const inp=document.getElementById('voucherPhoneInput');
+  inp.value=c.phone||'';
+  updateVoucherPhoneBox();
+  updateVoucherPhoneHint();
+
+  document.getElementById('voucherModal').classList.add('show');
+  if(!c.phone){setTimeout(()=>inp.focus(),250)}
+}
+function closeVoucherModal(){
+  document.getElementById('voucherModal').classList.remove('show');
+  currentVoucherCid=null;currentVoucherPeriod=null;currentVoucherIsYear=false;
+}
+
+/* ✅ Phone → WhatsApp format (92XXXXXXXXXX) */
+function normalizePhoneForWa(input){
+  let p=String(input||'').replace(/\D/g,'');
+  if(!p) return '';
+  if(p.startsWith('0092')) p=p.slice(4);
+  else if(p.startsWith('92') && p.length>10) p=p.slice(2);
+  else if(p.startsWith('0')) p=p.slice(1);
+  if(p.length!==10) return null;
+  return '92'+p;
+}
+
+function updateVoucherPhoneBox(){
+  const c=state.customers.find(x=>x.id===currentVoucherCid);
+  const box=document.getElementById('voucherPhoneBox');
+  if(!c||!box)return;
+  const hasVal=(c.phone&&String(c.phone).trim().length>0);
+  if(hasVal){box.style.background='#f6f7fc';box.style.borderColor='#e3e7f3';}
+  else{box.style.background='#fff8e1';box.style.borderColor='#f0c15c';}
+}
+
+function updateVoucherPhoneHint(){
+  const inp=document.getElementById('voucherPhoneInput');
+  const hint=document.getElementById('voucherPhoneHint');
+  if(!inp||!hint)return;
+  const val=(inp.value||'').trim();
+  const c=state.customers.find(x=>x.id===currentVoucherCid);
+  const savedPhone=c&&c.phone?String(c.phone).trim():'';
+
+  if(!val){
+    hint.innerHTML='<span style="color:var(--warn);font-weight:700">⚠️ Phone number likhein — phir Send dabayein</span>';
+    return;
+  }
+  const wa=normalizePhoneForWa(val);
+  if(!wa){
+    hint.innerHTML='<span style="color:var(--bad)">❌ Number sahi nahi — 0300-1234567 ya +923001234567</span>';
+    return;
+  }
+  const changed=(val!==savedPhone);
+  let txt='✅ WhatsApp par bhejega: <b style="color:var(--pri)">+'+wa+'</b>';
+  if(changed && savedPhone) txt+='<br><span style="color:var(--warn)">(Save dabakar record update karein)</span>';
+  else if(changed) txt+='<br><span style="color:var(--warn)">(Save dabakar record mein add ho jayega)</span>';
+  else txt+='<br><span style="color:var(--ok)">Ye number pehle se saved hai ✅</span>';
+  hint.innerHTML=txt;
+}
+
+function saveVoucherPhone(silent){
+  const c=state.customers.find(x=>x.id===currentVoucherCid);
+  if(!c){if(!silent)showToast('Customer nahi mila.');return false}
+  const inp=document.getElementById('voucherPhoneInput');
+  const val=(inp.value||'').trim();
+  if(!val){if(!silent){showToast('⚠️ Pehle number likhein');inp.focus();}return false;}
+  const wa=normalizePhoneForWa(val);
+  if(!wa){if(!silent){showToast('❌ Number sahi nahi');inp.focus();}return false;}
+  c.phone=val;
+  saveState();
+  renderAll();
+  updateVoucherPhoneBox();
+  updateVoucherPhoneHint();
+  if(!silent)showToast('✅ Phone save: '+val);
+  return true;
+}
+
+/* ✅ TEXT SEND — direct customer number par */
+function sendVoucherText(){
+  if(!currentVoucherCid)return;
+  const c=state.customers.find(x=>x.id===currentVoucherCid);
+  if(!c){showToast('Customer nahi mila.');return}
+
+  const inp=document.getElementById('voucherPhoneInput');
+  const val=(inp.value||'').trim();
+  if(!val){showToast('⚠️ Pehle phone number likhein');inp.focus();updateVoucherPhoneBox();return;}
+  const wa=normalizePhoneForWa(val);
+  if(!wa){showToast('❌ Number sahi nahi — 0300-1234567');inp.focus();return;}
+
+  if((c.phone||'')!==val){c.phone=val;saveState();renderAll();showToast('✅ Phone save: '+val);}
+
+  const txt=buildVoucherTextMessage(c,currentVoucherPeriod,currentVoucherIsYear);
+  window.open('https://wa.me/'+wa+'?text='+encodeURIComponent(txt),'_blank');
+  showToast('✅ WhatsApp khul raha hai...');
+}
+
+/* ✅ IMAGE SEND — preview modal + WhatsApp direct customer ke number par */
+async function sendVoucherImage(){
+  if(!currentVoucherCid)return;
+  const c=state.customers.find(x=>x.id===currentVoucherCid);
+  if(!c){showToast('Customer nahi mila.');return}
+
+  const inp=document.getElementById('voucherPhoneInput');
+  const val=(inp.value||'').trim();
+  if(!val){showToast('⚠️ Pehle phone number likhein');inp.focus();updateVoucherPhoneBox();return;}
+  const wa=normalizePhoneForWa(val);
+  if(!wa){showToast('❌ Number sahi nahi — 0300-1234567');inp.focus();return;}
+
+  if((c.phone||'')!==val){c.phone=val;saveState();renderAll();showToast('✅ Phone save: '+val);}
+
+  const period=currentVoucherPeriod, isYear=currentVoucherIsYear;
+  const fname='voucher-'+c.name.replace(/\s+/g,'_')+'-'+period+'.png';
+
+  try{
+    showToast('⏳ Voucher image ban rahi hai...');
+    const html=buildVoucherImageHTML(c,period,isYear);
+    const blob=await htmlToPngBlob(html,480);
+    const file=new File([blob],fname,{type:'image/png'});
+
+    // Mobile: native share
+    if(navigator.share && navigator.canShare && navigator.canShare({files:[file]})){
+      try{
+        await navigator.share({files:[file],title:'Voucher — '+c.name,text:''});
+        showToast('✅ WhatsApp par bhej dein.');
+        return;
+      }catch(e){ if(e.name==='AbortError'){showToast('Cancel.');return;} }
+    }
+
+    // Desktop fallback: download + preview modal (customer ke number par direct)
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;a.download=fname;document.body.appendChild(a);a.click();
+    setTimeout(()=>{a.remove();URL.revokeObjectURL(url)},2500);
+
+    document.getElementById('voucherModal').classList.remove('show');
+
+    // ✅ c.phone bhejenge taake WhatsApp direct customer ke number par jaye
+    showImagePreviewModal(blob, c.phone, fname, period, c, isYear);
+
+  }catch(err){
+    console.error(err);
+    showToast('❌ '+(err.message||'Voucher image nahi ban saki'));
+  }
+}
+
+async function saveVoucherPNG(){
+  if(!currentVoucherCid)return;
+  const c=state.customers.find(x=>x.id===currentVoucherCid);if(!c)return;
+  const period=currentVoucherPeriod, isYear=currentVoucherIsYear;
+  try{
+    showToast('⏳ Voucher ban raha hai...');
+    const html=buildVoucherImageHTML(c,period,isYear);
+    const blob=await htmlToPngBlob(html,480);
+    const fname='voucher-'+c.name.replace(/\s+/g,'_')+'-'+period+'.png';
+    const url=URL.createObjectURL(blob),a=document.createElement('a');
+    a.href=url;a.download=fname;document.body.appendChild(a);a.click();
+    setTimeout(()=>{a.remove();URL.revokeObjectURL(url)},1500);
+    showToast('📥 Voucher download ho gaya.');
+  }catch(err){showToast('❌ '+err.message)}
+}
+
+function printVoucher(){
+  if(!currentVoucherCid)return;
+  const c=state.customers.find(x=>x.id===currentVoucherCid);if(!c)return;
+  const div=document.getElementById('__printArea');
+  div.innerHTML=buildVoucherImageHTML(c,currentVoucherPeriod,currentVoucherIsYear);
+  document.body.classList.add('printing-member');
+  setTimeout(()=>{try{window.print()}catch(e){}setTimeout(()=>{div.innerHTML='';document.body.classList.remove('printing-member')},1500)},200);
+}
+
 function saveNetSettings(){
   state.networkName=document.getElementById('netName').value.trim()||'WiFi Record Book';
   state.helpline=document.getElementById('netHelpline').value.trim()||'—';
@@ -1229,25 +1454,6 @@ function shareWhatsApp(tab){
     shareHtmlAsPng(html,'Devices — '+monthLabel(devMk),'devices-'+devMk);
     return;
   }
-}
-
-/* ============================================================
-   PENDING PAYMENT VOUCHER — SIRF TEXT, DIRECT NUMBER PE
-   ============================================================ */
-function sendWhatsAppVoucher(cid,period,isYear){
-  const c=state.customers.find(x=>x.id===cid);
-  if(!c){showToast('Customer nahi mila.');return}
-  let phone=(c.phone||'').replace(/\D/g,'');
-  if(!phone){
-    alert('⚠️ "'+c.name+'" ka phone number save nahi hai.\n\nCustomers tab → Edit → Phone Number add karein.');
-    return;
-  }
-  if(phone.startsWith('0')) phone='92'+phone.slice(1);
-  else if(!phone.startsWith('92')&&phone.length===10) phone='92'+phone;
-  const txt=buildVoucherTextMessage(c, period, isYear);
-  const url='https://wa.me/'+phone+'?text='+encodeURIComponent(txt);
-  window.open(url,'_blank');
-  showToast('✅ WhatsApp khul raha hai...');
 }
 
 function printTab(){document.body.classList.remove('printing-member');document.body.classList.remove('printing-all');setTimeout(()=>{try{window.print()}catch(e){}},100)}
@@ -1344,7 +1550,7 @@ function renderDashboardMonth(){
         '<td>'+(isPartial?'<span class="badge partial">🟡 Partial</span>':'<span class="badge unpaid">❌ Unpaid</span>')+'</td>'+
         '<td class="no-print" style="text-align:center;white-space:nowrap">'+
           '<button class="btn ok xs" onclick="quickPayDashboard(\''+c.id+'\',\''+mk+'\')">Mark Paid</button> '+
-          '<button class="btn wa xs" onclick="sendWhatsAppVoucher(\''+c.id+'\',\''+mk+'\')">📱 WhatsApp</button>'+
+          '<button class="btn wa xs" onclick="openVoucher(\''+c.id+'\',\''+mk+'\')">🧾 Voucher</button>'+
         '</td></tr>';
     });
   }
@@ -1446,7 +1652,7 @@ function renderDashboardYear(){
         '<td style="color:var(--ok);font-weight:700">'+money(r.paid)+'</td>'+
         '<td style="color:var(--bad);font-weight:700">'+money(r.baq)+'</td>'+
         '<td class="no-print" style="text-align:center;white-space:nowrap">'+
-          '<button class="btn wa xs" onclick="sendWhatsAppVoucher(\''+c.id+'\',\''+year+'\',true)">📱 WhatsApp</button>'+
+          '<button class="btn wa xs" onclick="openVoucher(\''+c.id+'\',\''+year+'\',true)">🧾 Voucher</button>'+
         '</td></tr>';
     });
   }
@@ -1889,11 +2095,11 @@ function wipeAll(){
   document.getElementById('dashYearPicker').value=curYear();
   document.getElementById('devMonthPicker').value=curMonth();
   document.getElementById('rptMonthPicker').value=curMonth();
-  ['custModal','addMemberModal','memberReportModal','pwModal','receiptModal'].forEach(id=>{
-    document.getElementById(id).addEventListener('click',e=>{if(e.target.id===id){if(id==='custModal')closeCustModal();else if(id==='addMemberModal')closeAddMemberModal();else if(id==='memberReportModal')closeMemberReportModal();else if(id==='receiptModal')closeReceiptModal();else closePwModal()}});
+  ['custModal','addMemberModal','memberReportModal','pwModal','receiptModal','voucherModal'].forEach(id=>{
+    document.getElementById(id).addEventListener('click',e=>{if(e.target.id===id){if(id==='custModal')closeCustModal();else if(id==='addMemberModal')closeAddMemberModal();else if(id==='memberReportModal')closeMemberReportModal();else if(id==='receiptModal')closeReceiptModal();else if(id==='voucherModal')closeVoucherModal();else closePwModal()}});
   });
   document.addEventListener('keydown',e=>{
-    if(e.key==='Escape'){closeCustModal();closeAddMemberModal();closeMemberReportModal();closePwModal();closeReceiptModal()}
+    if(e.key==='Escape'){closeCustModal();closeAddMemberModal();closeMemberReportModal();closePwModal();closeReceiptModal();closeVoucherModal()}
     if(e.key==='Enter'&&document.getElementById('pwModal').classList.contains('show'))submitPw();
   });
   document.getElementById('cDev').addEventListener('change',()=>{refreshSsidDropdown();updateDevStatusHint()});
@@ -1911,6 +2117,17 @@ function wipeAll(){
     v = v.slice(0,11);
     this.value = v.length > 4 ? v.slice(0,4)+'-'+v.slice(4) : v;
   });
+
+  // ✅ Voucher phone input listeners
+  const vpi=document.getElementById('voucherPhoneInput');
+  if(vpi){
+    vpi.addEventListener('input',updateVoucherPhoneHint);
+    vpi.addEventListener('blur',updateVoucherPhoneHint);
+    vpi.addEventListener('keydown',e=>{
+      if(e.key==='Enter'){e.preventDefault();saveVoucherPhone();}
+    });
+  }
+
   if(!storageOK)showStorageWarning();
   updateTabLockIcons();
   loadNetSettings();

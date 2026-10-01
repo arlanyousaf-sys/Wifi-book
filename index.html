@@ -1084,8 +1084,28 @@ async function shareReceiptWhatsApp(){
     const receiptHTML=buildReceiptHTML(c, mk);
     const blob=await htmlToPngBlob(receiptHTML, 560);
     const fname='receipt-'+c.name.replace(/\s+/g,'_')+'-'+mk+'.png';
+    const file = new File([blob], fname, {type: 'image/png'});
 
-    // 1. Pehle picture ko phone ki Gallery mein save karein
+    // 1. Pehle check karein ke kya phone Direct Share (Quick Share) support karta hai
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({
+          files: [file],
+          title: 'WiFi Book Voucher',
+          text: 'Yeh raha aapka WiFi Book Voucher'
+        });
+        showToast('✅ Share ho gaya!');
+        return; // Agar share ho gaya to yahin ruk jayein
+      } catch (err) {
+        if (err.name === 'AbortError') {
+          showToast('Share cancel kar diya.');
+          return;
+        }
+        console.log('Direct share fail hua, ab download karein...', err);
+      }
+    }
+
+    // 2. Agar Direct Share kaam na kare (jaise purani APK mein), to Download karein
     const url=URL.createObjectURL(blob);
     const a=document.createElement('a');
     a.href=url;
@@ -1096,7 +1116,7 @@ async function shareReceiptWhatsApp(){
 
     showToast('✅ Picture save ho gayi hai! Ab WhatsApp par bhejein.');
 
-    // 2. 2.5 second baad WhatsApp kholein
+    // 3. 2.5 second baad WhatsApp kholein
     setTimeout(()=>{
       const phone = c.phone ? c.phone.replace(/\D/g,'') : '';
       let waUrl = 'https://wa.me/';
@@ -1113,7 +1133,6 @@ async function shareReceiptWhatsApp(){
     showToast('❌ Receipt nahi ban saki: '+err.message);
   }
 }
-
 function printReceipt(){
   if(!currentReceiptCid)return;
   const c=state.customers.find(x=>x.id===currentReceiptCid);if(!c)return;
